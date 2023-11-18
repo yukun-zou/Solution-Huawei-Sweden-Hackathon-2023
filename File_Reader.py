@@ -9,6 +9,23 @@ class File_Reader:
         return [line.strip() for line in lines]
 
     def parse_input(self, lines):
+        '''
+        (
+            baseline_cost,
+            action_cost,
+            CPU_cost,
+            MEM_cost,
+            B,
+            CPU,
+            MEM,
+            ACC,
+            cost_per_set,
+            N,
+            T,
+            X,
+            slices,
+        )
+        '''
         baseline_cost, action_cost = map(int, lines[0].split())
         CPU_cost, MEM_cost = map(int, lines[1].split())
         B, CPU, MEM, ACC, cost_per_set = map(int, lines[2].split())
