@@ -88,7 +88,7 @@ class Cost_Calculator:
         return cloud_cost
 
     def calculate_BBU_cost(
-        self, CPU, MEM, ACC, cost_per_set, CPU_required, MEM_required, ACC_required
+        self, CPU, MEM, ACC, cost_per_set, CPU_required, MEM_required, ACC_required,traffic
     ):
         """
         calculate the cost of the BBU
@@ -96,9 +96,9 @@ class Cost_Calculator:
         """
 
         BBU_sets = max(
-            math.ceil(CPU_required / CPU),
-            math.ceil(MEM_required / MEM),
-            math.ceil(ACC_required / ACC),
+            math.ceil(CPU_required / (CPU*traffic)),
+            math.ceil(MEM_required / (MEM*traffic)),
+            math.ceil(ACC_required / (ACC*traffic))
         )
         if BBU_sets > self.B:
             raise ValueError("BBU sets must smaller than BBU boards B")
@@ -152,7 +152,7 @@ class Cost_Calculator:
             total_acc,
             self.CPU_cost,
             self.MEM_cost,
-            self.X,
+            self.X
         )
 
         BBU_cost = 0
@@ -186,6 +186,7 @@ class Cost_Calculator:
             total_cpu,
             total_mem,
             total_acc,
+            s["traffic"][t]
         )
         # LA io cost
         IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][0])
@@ -219,11 +220,11 @@ class Cost_Calculator:
             cloud_acc,
             self.CPU_cost,
             self.MEM_cost,
-            self.X,
+            self.X
         )
 
         BBU_cost = self.calculate_BBU_cost(
-            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc
+            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc,s["traffic"][t]
         )
         # LA io cost
         IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][2])
@@ -257,11 +258,11 @@ class Cost_Calculator:
             cloud_acc,
             self.CPU_cost,
             self.MEM_cost,
-            self.X,
+            self.X
         )
 
         BBU_cost = self.calculate_BBU_cost(
-            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc
+            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc,s["traffic"][t]
         )
         # LA io cost
         IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][1])
@@ -276,7 +277,7 @@ class Cost_Calculator:
         """
         calculate the score of the policy
         """
-        return max(0, self.baseline_cost / self.OPEX - 1)
+        self.score= max(0, self.baseline_cost / self.OPEX - 1)
 
     def set_policy(self, policy):
         self.policy = policy

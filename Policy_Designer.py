@@ -35,37 +35,48 @@ class Policy_Designer:
         policy = np.full((N, T), "CCC")
         start = time.time()
         for t in range(T):
+            #一个timestep中所有slice的三个数据，最终结果
             s_cloud = 0
             s_bbucost = 0
             s_iocost = 0
             for i in range(N):
                 # 尝试替换每个切片的部署策略，计算OPEX
                 difference = 0
-                current_opex = self.cost_Calculator.cost_CCC(slices[i], 0, t)[3]
+                #如果bbu一个都用不了，使用ccc的数据
+                c,b,io,current_opex = self.cost_Calculator.cost_CCC(slices[i], 0, t)
                 methods = [
                     getattr(self.cost_Calculator, "cost_" + i) for i in policy_list[1:]
                 ]
 
                 for method, p in zip(methods, policy_list[1:]):
                     try:
+                        #BBU计算中如果资源不够抛出valueerror，直接使用当前最小的数据
+                        #因为报错三个值不会被覆盖
                         c, b, io, new_opex = method(slices[i], 0, t)
                     except ValueError:
+                        #后面的B越来越多，直接不考虑
                         break
                         # print("output tuple",c,b,io,new_opex)
                     difference = self.count_difference("CCC", p)
                     if (new_opex + difference * action_cost) < current_opex:
-                        #TODO：加入限定条件，如果BBU资源不够，就不要迁移
-                        
                         current_opex = new_opex
                         policy[i, t] = p
-                        s_cloud += c
-                        s_bbucost += b
-                        s_iocost += io
+                        #找到最小的cbio，N个为一组加起来，存到list里,opex要每一个直接加起来
+                s_cloud += c
+                s_bbucost += b
+                s_iocost += io   
+                total_opex += current_opex + difference * action_cost     
 
 
-                self.cost_Calculator.cost_updater(s_cloud, s_bbucost, s_iocost)
-                total_opex += current_opex + difference * action_cost
+            self.cost_Calculator.cost_updater(s_cloud, s_bbucost, s_iocost)
+            
         end = time.time()
+
+        self.cost_Calculator.set_policy(policy)
+        self.cost_Calculator.OPEX = total_opex
+        self.cost_Calculator.get_score()
+        self.cost_Calculator.execution_time = end - start
+        self.cost_Calculator.export_csv()
         print(
             "policy",
             policy,
@@ -73,13 +84,11 @@ class Policy_Designer:
             total_opex,
             "\nbase",
             self.cost_Calculator.baseline_cost,
+            "\nscore",
+            self.cost_Calculator.score
         )
-        self.cost_Calculator.set_policy(policy)
-        self.cost_Calculator.OPEX = total_opex
-        self.cost_Calculator.get_score()
-        self.cost_Calculator.execution_time = end - start
-        self.cost_Calculator.export_csv()
         return policy, total_opex
+    
 
     def count_difference(self, p, pre_p):
         difference = sum(c1 != c2 for c1, c2 in zip(p, pre_p))
