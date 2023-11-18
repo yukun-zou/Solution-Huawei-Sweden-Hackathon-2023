@@ -1,4 +1,4 @@
-#Cost_Calculator.py is used to calculate the cost of the policy=cost builder
+# Cost_Calculator.py is used to calculate the cost of the policy=cost builder
 import csv
 import math
 import time
@@ -28,11 +28,12 @@ class Cost_Calculator:
     X = 0
     slices = []
     policy = []
-    cloud_costs=[]
-    BBU_costs=[]
-    IO_costs=[]
-    execution_time=0
-    score=0
+    cloud_costs = []
+    BBU_costs = []
+    IO_costs = []
+    execution_time = 0
+    score = 0
+
     def __init__(
         self,
         baseline_cost,
@@ -48,7 +49,7 @@ class Cost_Calculator:
         T,
         X,
         slices,
-        policy
+        policy,
     ):
         """
         initialize the cost calculator
@@ -69,7 +70,6 @@ class Cost_Calculator:
         self.X = X
         self.slices = slices
         self.policy = policy
-        
 
     def calculate_cloud_cost(
         self, traffic, CPU_required, MEM_required, ACC_required, CPU_cost, MEM_cost, X
@@ -96,11 +96,11 @@ class Cost_Calculator:
         """
 
         BBU_sets = max(
-            math.ceil(CPU_required/CPU ),
-            math.ceil(MEM_required/MEM ),
-            math.ceil(ACC_required/ACC  ),
+            math.ceil(CPU_required / CPU),
+            math.ceil(MEM_required / MEM),
+            math.ceil(ACC_required / ACC),
         )
-        
+
         BBU_cost = BBU_sets * cost_per_set
         # print("BBU sets", BBU_sets,"BBU boards" ,self.B ,"BBU cost", BBU_cost)
         return BBU_cost
@@ -126,7 +126,7 @@ class Cost_Calculator:
         OPEX = cloud_cost + BBU_cost + IO_cost + action_cost
         return OPEX
 
-    def cost_CCC(self, s, relocation,t):
+    def cost_CCC(self, s, relocation, t):
         """
         calculate the cost of the policy CCC
         """
@@ -155,9 +155,9 @@ class Cost_Calculator:
 
         OPEX = self.calculate_OPEX(cloud_cost, BBU_cost, IO_cost, action_cost)
 
-        return (cloud_cost, BBU_cost, IO_cost,OPEX)
+        return (cloud_cost, BBU_cost, IO_cost, OPEX)
 
-    def cost_BBB(self, s, relocation,t):
+    def cost_BBB(self, s, relocation, t):
         """
         calculate the cost of the policy CCB
         """
@@ -186,9 +186,9 @@ class Cost_Calculator:
 
         OPEX = self.calculate_OPEX(cloud_cost, BBU_cost, IO_cost, action_cost)
 
-        return (cloud_cost, BBU_cost, IO_cost,OPEX)
+        return (cloud_cost, BBU_cost, IO_cost, OPEX)
 
-    def cost_CCB(self, s, relocation,t):
+    def cost_CCB(self, s, relocation, t):
         """
         calculate the cost of the policy CCB
         """
@@ -224,9 +224,9 @@ class Cost_Calculator:
 
         OPEX = self.calculate_OPEX(cloud_cost, BBU_cost, IO_cost, action_cost)
 
-        return (cloud_cost, BBU_cost, IO_cost,OPEX)
+        return (cloud_cost, BBU_cost, IO_cost, OPEX)
 
-    def cost_CBB(self, s, relocation,t):
+    def cost_CBB(self, s, relocation, t):
         """
         calculate the cost of the policy CBB
         """
@@ -262,79 +262,92 @@ class Cost_Calculator:
 
         OPEX = self.calculate_OPEX(cloud_cost, BBU_cost, IO_cost, action_cost)
 
-        return (cloud_cost, BBU_cost, IO_cost,OPEX)
-
+        return (cloud_cost, BBU_cost, IO_cost, OPEX)
 
     def get_score(self):
-        '''
+        """
         calculate the score of the policy
-        '''
-        return max(0,self.baseline_cost/self.OPEX-1)
-    
-    def cost_builder(self):
-        '''
-        calculate the cost of all slices
-        '''
-        #TODO: add the cost of all slices,关于relocation的问题需要讨论，增加output构建
+        """
+        return max(0, self.baseline_cost / self.OPEX - 1)
 
-        execution_time=0
-        start=time.time()
-        #policy 应该为二维数组[[],[]]
+    def cost_builder(self):
+        """
+        calculate the cost of all slices
+        """
+        # TODO: add the cost of all slices,关于relocation的问题需要讨论，增加output构建
+
+        execution_time = 0
+        start = time.time()
+        # policy 应该为二维数组[[],[]]
         for t in range(self.T):
             # print("time",t,self.T)
-            
-            for i,s in enumerate(self.slices):
-                s_cloud=0
-                s_bbucost=0
-                s_iocost=0
-                p=self.policy[t][i]
+
+            for i, s in enumerate(self.slices):
+                s_cloud = 0
+                s_bbucost = 0
+                s_iocost = 0
+                p = self.policy[t][i]
                 # print('i',i,'t',t,'policy',p)
-                if p=='CCC':
-                    output_tuple=self.cost_CCC(s,0,t)
-                    s_cloud=output_tuple[0]
-                    s_bbucost=output_tuple[1]
-                    s_iocost=output_tuple[2]            
-                    self.OPEX+=self.cost_CCC(s,0,t)[3]
-                elif p=='BBB':
-                    output_tuple=self.cost_BBB(s,0,t)
-                    s_cloud=output_tuple[0]
-                    s_bbucost=output_tuple[1]
-                    s_iocost=output_tuple[2]   
-                    self.OPEX+=self.cost_BBB(s,0,t)[3]
-             
-                elif p=='CCB':
-                    output_tuple=self.cost_CCB(s,0,t)
-                    s_cloud=output_tuple[0]
-                    s_bbucost=output_tuple[1]
-                    s_iocost=output_tuple[2]   
-                    self.OPEX+=self.cost_CCB(s,0,t)[3]
-    
-                elif p=='CBB':
-                    output_tuple=self.cost_CBB(s,0,t)
-                    s_cloud=output_tuple[0]
-                    s_bbucost=output_tuple[1]
-                    s_iocost=output_tuple[2]   
-                    self.OPEX+=self.cost_CBB(s,0,t)[3]
+                if p == "CCC":
+                    output_tuple = self.cost_CCC(s, 0, t)
+                    s_cloud = output_tuple[0]
+                    s_bbucost = output_tuple[1]
+                    s_iocost = output_tuple[2]
+                    self.OPEX += self.cost_CCC(s, 0, t)[3]
+                elif p == "BBB":
+                    output_tuple = self.cost_BBB(s, 0, t)
+                    s_cloud = output_tuple[0]
+                    s_bbucost = output_tuple[1]
+                    s_iocost = output_tuple[2]
+                    self.OPEX += self.cost_BBB(s, 0, t)[3]
+
+                elif p == "CCB":
+                    output_tuple = self.cost_CCB(s, 0, t)
+                    s_cloud = output_tuple[0]
+                    s_bbucost = output_tuple[1]
+                    s_iocost = output_tuple[2]
+                    self.OPEX += self.cost_CCB(s, 0, t)[3]
+
+                elif p == "CBB":
+                    output_tuple = self.cost_CBB(s, 0, t)
+                    s_cloud = output_tuple[0]
+                    s_bbucost = output_tuple[1]
+                    s_iocost = output_tuple[2]
+                    self.OPEX += self.cost_CBB(s, 0, t)[3]
                 else:
-                    output_tuple=self.cost_CCC(s,0,t)
+                    output_tuple = self.cost_CCC(s, 0, t)
             self.cloud_costs.append(s_cloud)
             self.BBU_costs.append(s_bbucost)
             self.IO_costs.append(s_iocost)
 
-        end=time.time()
-        self.execution_time=end-start
-        self.score=self.get_score()
-        print(self.policy,'\n',self.cloud_costs,'\n',self.BBU_costs,'\n',self.IO_costs,'\n',self.OPEX,'\n',self.score,'\n',self.execution_time)
+        end = time.time()
+        self.execution_time = end - start
+        self.score = self.get_score()
+        print(
+            self.policy,
+            "\n",
+            self.cloud_costs,
+            "\n",
+            self.BBU_costs,
+            "\n",
+            self.IO_costs,
+            "\n",
+            self.OPEX,
+            "\n",
+            self.score,
+            "\n",
+            self.execution_time,
+        )
         self.export_csv()
         return self.OPEX
 
     def export_csv(self):
-        '''
+        """
         export the result to csv
-        '''
-        with open('output.csv', 'w',newline='') as csvfile:
-            writer = csv.writer(csvfile,delimiter=' ')
-            output_policy=[list(i) for i in zip(*self.policy)]
+        """
+        with open("output.csv", "w", newline="") as csvfile:
+            writer = csv.writer(csvfile, delimiter=" ")
+            output_policy = [list(i) for i in zip(*self.policy)]
             writer.writerows(output_policy)
             writer.writerow(self.cloud_costs)
             writer.writerow(self.BBU_costs)
@@ -342,9 +355,7 @@ class Cost_Calculator:
             writer.writerow([self.OPEX])
             writer.writerow([self.score])
             writer.writerow([self.execution_time])
-            
-       
-       
+
             csvfile.close()
 
     # def calculate_costs(
