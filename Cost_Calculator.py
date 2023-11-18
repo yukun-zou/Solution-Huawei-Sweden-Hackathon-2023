@@ -49,7 +49,7 @@ class Cost_Calculator:
         T,
         X,
         slices,
-        policy,
+        policy=[],
     ):
         """
         initialize the cost calculator
@@ -127,8 +127,15 @@ class Cost_Calculator:
         return OPEX
 
     def cost_CCC(self, s, relocation, t):
-        """
-        calculate the cost of the policy CCC
+        """calculate the cost of the policy CCB
+
+        Args:
+            s (dict): _description_
+            relocation (int): _description_
+            t (int): _description_
+
+        Returns:
+            _type_: _description_
         """
         # cpu
         total_cpu = s["CU"][0] + s["DU"][0] + s["PHY"][0]
@@ -269,6 +276,9 @@ class Cost_Calculator:
         calculate the score of the policy
         """
         return max(0, self.baseline_cost / self.OPEX - 1)
+
+    def set_policy(self, policy):
+        self.policy = policy
 
     def cost_builder(self):
         """

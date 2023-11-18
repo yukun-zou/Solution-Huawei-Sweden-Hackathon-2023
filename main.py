@@ -9,16 +9,17 @@ def main():
 
     reader = File_Reader(file_path)
     lines = reader.read_input()
-    print(lines)
+    # print(lines)
     inputs = reader.parse_input(lines)
 
-    designer = Policy_Designer()
+    cost_builder=Cost_Calculator(*inputs)
+    designer = Policy_Designer(cost_builder)
     policy = designer.policy_output(inputs[-1], inputs)
-    print(policy)
+    # print(policy)
     
-    cost_builder=Cost_Calculator(*inputs,['CCB']*len(inputs[-1]))
+    
 
-    costs = cost_builder.cost_builder()
+    # costs = cost_builder.cost_builder()
     # print(costs)
     # for t in range(inputs[9]):
     #     print(

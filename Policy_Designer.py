@@ -1,5 +1,5 @@
-# Your solutions will be validated on a Docker container with 4 vCPUs, so we 
-# suggest you use at most 4 threads 
+# Your solutions will be validated on a Docker container with 4 vCPUs, so we
+# suggest you use at most 4 threads
 # invalid input?
 # 贪心？BBUcost和Cloudcost和actioncost是联动的
 # IOcost是四选一，这个确定可以直接确定部署策略，但要确认是否valid
@@ -11,8 +11,14 @@ from Cost_Calculator import Cost_Calculator
 
 
 class Policy_Designer:
-    def __init__(self):
-        pass
+    """
+    policy designer with greedy algorithm
+    """
+
+    cost_Calculator = None
+
+    def __init__(self, cost_Calculator):
+        self.cost_Calculator = cost_Calculator
 
     def policy_output(self, slices, inputs):
         """
@@ -23,47 +29,58 @@ class Policy_Designer:
         policy_list = ['CCC', 'CCB', 'CBB', 'BBB']
         N = inputs[9]  # 切片数量
         T = inputs[10]  # 时间步长
-        X = inputs[11]  # 代表ACC的CPU倍数
         action_cost = inputs[1]  # 每次迁移的成本
-
+        total_opex = 0
         # 初始化一个 N*T 的矩阵，所有元素都是 'CCC'
         policy = np.full((N, T), 'CCC')
+        print (policy.dtype)
         for t in range(T):
             for i in range(N):
                 # 尝试替换每个切片的部署策略，计算OPEX
-                current_policy = policy.copy()
-                for new_policy in ['BBB', 'CCB', 'CBB']:
-                    current_policy[i,t] = new_policy
-                    opex = self.calculate_opex(slices, current_policy, inputs, t, action_cost)
+                difference = 0
+                current_opex = self.cost_Calculator.cost_CCC(slices[i], 0, t)[3]
+                methods = [
+                    getattr(self.cost_Calculator, "cost_" + i) for i in policy_list[1:]
+                ]
+                for method, p in zip(methods, policy[1:]):
+                    new_opex = method(slices[i], 0, t)[3]
+                    difference = self.count_difference('CCC', p)
+                    if (new_opex + difference) < current_opex:
+                        current_opex = new_opex
+                        policy[i, t] = p.astype('<U3')
 
-                    # 如果当前部署策略的OPEX更小，更新部署策略
-                    if opex < self.calculate_opex(slices, policy, inputs, t, action_cost):
-                        policy[i,t] = current_policy[i,t]
+                total_opex += current_opex + difference * action_cost
 
-        return policy
+        print("policy", policy, "total_opex", total_opex)
+        self.cost_Calculator.set_policy(policy)
+        
+        return policy, total_opex
 
-    def calculate_opex(self, slices, policy, inputs, t, action_cost):
-        """
-        计算给定部署策略的OPEX
-        """
-        difference = 0
-        OPEX = 0
-        cost_calculator = Cost_Calculator(*inputs, policy)
+    def count_difference(self, p, pre_p):
+        difference = sum(c1 != c2 for c1, c2 in zip(p, pre_p))
+        return difference
 
-        for i in range(len(slices)):
-            p = policy[i][t]
-            if t > 0:
-                pre_p = policy[i][t - 1]
-                difference = sum(c1 != c2 for c1, c2 in zip(p, pre_p))
-            if p == 'CCC':
-                OPEX += cost_calculator.cost_CCC(slices[i], difference, t)
-            elif p == 'BBB':
-                OPEX += cost_calculator.cost_BBB(slices[i], difference, t)
-            elif p == 'CCB':
-                OPEX += cost_calculator.cost_CCB(slices[i], difference, t)
-            elif p == 'CBB':
-                OPEX += cost_calculator.cost_CBB(slices[i], difference, t)
-            #OPEX += cost_calculator.cost_CCC(slices[i], 0, t)  # 默认计算CCC的OPEX，可以根据实际情况替换成其他部署策略的计算方法
+    # def calculate_opex(self, slices, policy, inputs, t, action_cost):
+    #     """
+    #     计算给定部署策略的OPEX
+    #     """
+    #     difference = 0
+    #     OPEX = 0
+    #     cost_calculator = Cost_Calculator(*inputs, policy)
 
-        return OPEX
+    #     for i,s in enumerate(slices):
+    #         p = policy[i][t]
+    #         if t > 0:
+    #             pre_p = policy[i][t - 1]
+    #             difference = sum(c1 != c2 for c1, c2 in zip(p, pre_p))
+    #         if p == 'CCC':
+    #             OPEX += cost_calculator.cost_CCC(s, difference, t)[3]
+    #         elif p == 'BBB':
+    #             OPEX += cost_calculator.cost_BBB(s, difference, t)[3]
+    #         elif p == 'CCB':
+    #             OPEX += cost_calculator.cost_CCB(s, difference, t)[3]
+    #         elif p == 'CBB':
+    #             OPEX += cost_calculator.cost_CBB(s, difference, t)[3]
+    #         #OPEX += cost_calculator.cost_CCC(slices[i], 0, t)  # 默认计算CCC的OPEX，可以根据实际情况替换成其他部署策略的计算方法
 
+    #     return OPEX
