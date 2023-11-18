@@ -5,7 +5,7 @@ from Policy_Designer import Policy_Designer
 
 
 def main():
-    file_path = 'toy_example.txt'  #test_case
+    file_path = 'testcases/case1.txt'  #test_case
 
     reader = File_Reader(file_path)
     lines = reader.read_input()

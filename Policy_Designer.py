@@ -47,15 +47,21 @@ class Policy_Designer:
                 ]
 
                 for method, p in zip(methods, policy_list[1:]):
-                    c, b, io, new_opex = method(slices[i], 0, t)
-                    # print("output tuple",c,b,io,new_opex)
+                    try:
+                        c, b, io, new_opex = method(slices[i], 0, t)
+                    except ValueError:
+                        break
+                        # print("output tuple",c,b,io,new_opex)
                     difference = self.count_difference("CCC", p)
                     if (new_opex + difference * action_cost) < current_opex:
+                        #TODO：加入限定条件，如果BBU资源不够，就不要迁移
+                        
                         current_opex = new_opex
                         policy[i, t] = p
                         s_cloud += c
                         s_bbucost += b
                         s_iocost += io
+
 
                 self.cost_Calculator.cost_updater(s_cloud, s_bbucost, s_iocost)
                 total_opex += current_opex + difference * action_cost
