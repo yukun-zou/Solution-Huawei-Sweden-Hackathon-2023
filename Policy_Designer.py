@@ -33,7 +33,7 @@ class Policy_Designer:
         total_opex = 0
         # 初始化一个 N*T 的矩阵，所有元素都是 'CCC'
         policy = np.full((N, T), 'CCC')
-        print (policy.dtype)
+       
         for t in range(T):
             for i in range(N):
                 # 尝试替换每个切片的部署策略，计算OPEX
@@ -42,18 +42,20 @@ class Policy_Designer:
                 methods = [
                     getattr(self.cost_Calculator, "cost_" + i) for i in policy_list[1:]
                 ]
-                for method, p in zip(methods, policy[1:]):
+                for method, p in zip(methods, policy_list[1:]):
                     new_opex = method(slices[i], 0, t)[3]
                     difference = self.count_difference('CCC', p)
-                    if (new_opex + difference) < current_opex:
+                    if (new_opex + difference*action_cost) < current_opex:
                         current_opex = new_opex
-                        policy[i, t] = p.astype('<U3')
+                        policy[i, t] = p
 
                 total_opex += current_opex + difference * action_cost
 
-        print("policy", policy, "total_opex", total_opex)
-        self.cost_Calculator.set_policy(policy)
-        
+        print("policy", policy, "total_opex", total_opex,"score",self.cost_Calculator.baseline_cost)
+        # self.cost_Calculator.set_policy(policy)
+        # self.cost_Calculator.OPEX=total_opex
+        # self.cost_Calculator.get_score()
+        # self.cost_Calculator.export_csv()
         return policy, total_opex
 
     def count_difference(self, p, pre_p):
