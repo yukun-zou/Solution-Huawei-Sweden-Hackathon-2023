@@ -14,13 +14,17 @@ def main():
 
     designer = Policy_Designer()
     policy = designer.policy_output()
+    
+    cost_builder=Cost_Calculator(*inputs,['CCC']*len(inputs[-1]))
 
-    costs = Cost_Calculator.calculate_costs(*inputs)
-
-    for t in range(inputs[9]):
-        print(
-            f"Time {t + 1}: Cloud costs: {costs[0][t]}, BBU costs: {costs[1][t]}, I/O costs: {costs[2][t]}, Action costs: {costs[3][t]}, Total costs: {costs[4][t]}")
-
+    costs = cost_builder.cost_builder()
+    print(costs)
+    # for t in range(inputs[9]):
+    #     print(
+    #         f"Time {t + 1}: Cloud costs: {costs[0][t]}, BBU costs: {costs[1][t]}, \
+    #         I/O costs: {costs[2][t]}, Action costs: {costs[3][t]}, \
+    #         Total costs: {costs[4][t]}")
+    
 
 if __name__ == '__main__':
     main()
