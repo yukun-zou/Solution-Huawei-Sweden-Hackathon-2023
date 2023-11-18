@@ -5,7 +5,7 @@ from Policy_Designer import Policy_Designer
 
 
 def main():
-    file_path = 'toy_example.txt'  #test_case
+    file_path = 'testcases/case1.txt'  #test_case
 
     reader = File_Reader(file_path)
     lines = reader.read_input()
@@ -13,11 +13,10 @@ def main():
     inputs = reader.parse_input(lines)
 
     designer = Policy_Designer()
-    # policy = designer.policy_output()
-    policy=['CCB']*inputs[10]*inputs[9]
-    policy = [policy[i:i+inputs[9]] for i in range(0, len(policy), inputs[9])]
-    # print(policy)
-    cost_builder=Cost_Calculator(*inputs,policy)
+    policy = designer.policy_output(inputs[-1], inputs)
+    print(policy)
+    
+    cost_builder=Cost_Calculator(*inputs,['CCB']*len(inputs[-1]))
 
     costs = cost_builder.cost_builder()
     # print(costs)
