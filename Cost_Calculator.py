@@ -1,4 +1,5 @@
 #Cost_Calculator.py is used to calculate the cost of the policy=cost builder
+import csv
 import math
 import time
 
@@ -30,7 +31,8 @@ class Cost_Calculator:
     cloud_costs=[]
     BBU_costs=[]
     IO_costs=[]
-
+    execution_time=0
+    score=0
     def __init__(
         self,
         baseline_cost,
@@ -100,7 +102,7 @@ class Cost_Calculator:
         )
         
         BBU_cost = BBU_sets * cost_per_set
-        print("BBU sets", BBU_sets,"BBU boards" ,self.B ,"BBU cost", BBU_cost)
+        # print("BBU sets", BBU_sets,"BBU boards" ,self.B ,"BBU cost", BBU_cost)
         return BBU_cost
 
     def calculate_IO_cost(self, traffic, IO_linkUsed) -> int:
@@ -263,7 +265,7 @@ class Cost_Calculator:
         return (cloud_cost, BBU_cost, IO_cost,OPEX)
 
 
-    def score(self):
+    def get_score(self):
         '''
         calculate the score of the policy
         '''
@@ -320,12 +322,30 @@ class Cost_Calculator:
             self.IO_costs.append(s_iocost)
 
         end=time.time()
-        execution_time=end-start
-        print(self.policy,'\n',self.cloud_costs,'\n',self.BBU_costs,'\n',self.IO_costs,'\n',self.OPEX,'\n',execution_time)
+        self.execution_time=end-start
+        self.score=self.get_score()
+        print(self.policy,'\n',self.cloud_costs,'\n',self.BBU_costs,'\n',self.IO_costs,'\n',self.OPEX,'\n',self.score,'\n',self.execution_time)
+        self.export_csv()
         return self.OPEX
-    
-    
-    
+
+    def export_csv(self):
+        '''
+        export the result to csv
+        '''
+        with open('output.csv', 'w',newline='') as csvfile:
+            writer = csv.writer(csvfile,delimiter=' ')
+            output_policy=[list(i) for i in zip(*self.policy)]
+            writer.writerows(output_policy)
+            writer.writerow(self.cloud_costs)
+            writer.writerow(self.BBU_costs)
+            writer.writerow(self.IO_costs)
+            writer.writerow([self.OPEX])
+            writer.writerow([self.score])
+            writer.writerow([self.execution_time])
+            
+       
+       
+            csvfile.close()
 
     # def calculate_costs(
     #     self,
