@@ -34,6 +34,7 @@ class Cost_Calculator:
     execution_time = 0
     score = 0
 
+    t_sum=[]
     def __init__(
         self,
         baseline_cost,
@@ -70,6 +71,11 @@ class Cost_Calculator:
         self.X = X
         self.slices = slices
         self.policy = policy
+        traffic_values = [s['traffic'] for s in slices]
+        # 使用zip函数将列表转置，然后对每列进行求和
+        self.t_sum= [sum(column) for column in zip(*traffic_values)]
+        
+        
 
     def calculate_cloud_cost(
         self, traffic, CPU_required, MEM_required, ACC_required, CPU_cost, MEM_cost, X
@@ -186,7 +192,7 @@ class Cost_Calculator:
             total_cpu,
             total_mem,
             total_acc,
-            s["traffic"][t]
+            self.t_sum[t]
         )
         # LA io cost
         IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][0])
@@ -224,7 +230,7 @@ class Cost_Calculator:
         )
 
         BBU_cost = self.calculate_BBU_cost(
-            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc,s["traffic"][t]
+            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc,self.t_sum[t]
         )
         # LA io cost
         IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][2])
@@ -260,9 +266,9 @@ class Cost_Calculator:
             self.MEM_cost,
             self.X
         )
-
+       
         BBU_cost = self.calculate_BBU_cost(
-            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc,s["traffic"][t]
+            self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc,self.t_sum[t]
         )
         # LA io cost
         IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][1])
