@@ -1,120 +1,115 @@
-# Your solutions will be validated on a Docker container with 4 vCPUs, so we
-# suggest you use at most 4 threads
-# invalid input?
-# 贪心？BBUcost和Cloudcost和actioncost是联动的
-# IOcost是四选一，这个确定可以直接确定部署策略，但要确认是否valid
-# BBU资源如果不够，就要考虑迁移，迁移会导致action cost，
-# 迁移后的BBUcost和Cloudcost会变化
 import numpy as np
 import time
-from Cost_Calculator import Cost_Calculator
-
+import Cost_Calculator
 
 class Policy_Designer:
     """
-    policy designer with greedy algorithm
+    Policy designer with the proposed optimization algorithm
     """
 
     cost_Calculator = None
 
     def __init__(self, cost_Calculator):
         self.cost_Calculator = cost_Calculator
-
-    def policy_output(self, slices, inputs):
+    def valid_BBU(self,slice,t,bbu_resource):
         """
-        使用贪心算法找到最小OPEX的部署方案
-        slices: 服务实例列表
-        inputs: 输入参数
+        Check whether the BBU resource usage is valid
         """
-        policy_list = ["CCC", "CCB", "CBB", "BBB"]
-        N = inputs[9]  # 切片数量
-        T = inputs[10]  # 时间步长
-        action_cost = inputs[1]  # 每次迁移的成本
-        total_opex = 0
-        # 初始化一个 N*T 的矩阵，所有元素都是 'CCC'
+        for i in enumerate(bbu_resource):
+            if bbu_resource[i]-slice["IO"][i]*slice["traffic"][t]<0:
+                return False
+        return True
+    def policy_output(self,inputs):
+        """
+        Use the proposed optimization algorithm to find the deployment strategy with the minimum OPEX
+        slices: Service instance list
+        inputs: Input parameters
+        """
+        N = inputs[9]  # Number of slices
+        T = inputs[10]  # Time steps
+    
+        slices = inputs[-1]  # Service instance list
+        # Initialize a matrix of size N*T, all elements are 'CCC'
         policy = np.full((N, T), "CCC")
+        
+        # Arrays to store costs for each timestep
+        cloud_costs = []
+        bbu_costs = []
+        action_costs = []
+        total_opex = 0
         start = time.time()
+
         for t in range(T):
-            #一个timestep中所有slice的三个数据，最终结果
-            s_cloud = 0
-            s_bbucost = 0
-            s_iocost = 0
-            for i in range(N):
-                # 尝试替换每个切片的部署策略，计算OPEX
-                difference = 0
-                #如果bbu一个都用不了，使用ccc的数据
-                c,b,io,current_opex = self.cost_Calculator.cost_CCC(slices[i], 0, t)
-                methods = [
-                    getattr(self.cost_Calculator, "cost_" + i) for i in policy_list[1:]
-                ]
-
-                for method, p in zip(methods, policy_list[1:]):
-                    try:
-                        #BBU计算中如果资源不够抛出valueerror，直接使用当前最小的数据
-                        #因为报错三个值不会被覆盖
-                        c, b, io, new_opex = method(slices[i], 0, t)
-                    except ValueError:
-                        #后面的B越来越多，直接不考虑
-                        break
-                        # print("output tuple",c,b,io,new_opex)
-                    difference = self.count_difference("CCC", p)
-                    if (new_opex + difference * action_cost) < current_opex:
-                        current_opex = new_opex
-                        policy[i, t] = p
-                        #找到最小的cbio，N个为一组加起来，存到list里,opex要每一个直接加起来
-                s_cloud += c
-                s_bbucost += b
-                s_iocost += io   
-                total_opex += current_opex + difference * action_cost     
-
-
-            self.cost_Calculator.cost_updater(s_cloud, s_bbucost, s_iocost)
+            current_cloud_cost = 0
+            current_bbu_cost = 0
+            current_io_cost=0
             
+            BBU_resource = self.cost_Calculator.BBU_resource
+            # Update the BBU resource usage for each slice
+            for i in range(N):
+                # Find the index of the IO chain with the minimum cost at the current timestep
+            
+                min_io_index = np.argmin(slices[i]["IO"])
+                #计算cost
+                ccc_c,ccc_b,ccc_i,opex_ccc = self.cost_Calculator.cost_CCC(slices[i], 0, t)[0]
+                
+                if min_io_index == 0:#La 最小，BBB
+                    #计算BBB是否valid，如果valid，计算cost，如果invalid，直接使用CCC的数据
+                    c,b,io,opex_bbb = self.cost_Calculator.cost_BBB(slices[i], 3, t)[0]
+                    if opex_bbb<opex_ccc and self.valid_BBU(slices[i],t,BBU_resource):
+                        current_cloud_cost += b
+                        current_bbu_cost += c
+                        current_io_cost += io
+                        BBU_resource=[BBU_resource[j]-slices[i]["IO"][j] for j in range(len(BBU_resource))]
+                        policy[i, t] = "BBB"
+                        total_opex += opex_bbb
+                    
+                elif min_io_index == 1:#Lb 最小，CBB
+                    opex_cbb = self.cost_Calculator.cost_CBB(slices[i], 2, t)[0]
+                    if opex_cbb<opex_ccc and self.valid_BBU(slices[i],t,BBU_resource):
+                        current_cloud_cost += b
+                        current_bbu_cost += c
+                        current_io_cost += io
+                        BBU_resource=[BBU_resource[j]-slices[i]["IO"][j] for j in range(len(BBU_resource))]
+                        policy[i, t] = "CBB"
+                        total_opex += opex_cbb
+                    
+                elif min_io_index == 2:#Lc 最小，CCB
+                    opex_ccb = self.cost_Calculator.cost_CCB(slices[i], 1, t)[0]
+                    if opex_ccb<opex_ccc and self.valid_BBU(slices[i],t,BBU_resource):
+                        current_cloud_cost += b
+                        current_bbu_cost += c
+                        current_io_cost += io
+                        BBU_resource=[BBU_resource[j]-slices[i]["IO"][j] for j in range(len(BBU_resource))]
+                        policy[i, t] = "CCB"
+                        total_opex += opex_ccb
+                   
+                    
+                else:#Ld 最小，CCC
+                    current_cloud_cost += ccc_b
+                    current_bbu_cost += ccc_c
+                    current_io_cost += ccc_i
+                    total_opex += opex_ccc 
+                    policy[i, t] = "CCC"
+                    
+                
+            # Update the cost calculator with the accumulated costs for the current timestep
+            cloud_costs.append(current_cloud_cost)
+            bbu_costs.append(current_cloud_cost)
+            action_costs.append(current_bbu_cost)
+
+            # Update the cost calculator with the accumulated costs for the current timestep
+        self.cost_Calculator.cost_updater(cloud_costs, bbu_costs, action_costs)
+
         end = time.time()
 
+        print("Policy:", policy, "\nTotal OPEX:", self.cost_Calculator.OPEX)
+
+        # Export results
         self.cost_Calculator.set_policy(policy)
-        self.cost_Calculator.OPEX = total_opex
+        self.cost_Calculator.OPEX = sum(cloud_costs) + sum(bbu_costs) + sum(action_costs)
         self.cost_Calculator.get_score()
         self.cost_Calculator.execution_time = end - start
         self.cost_Calculator.export_csv()
-        print(
-            "policy",
-            policy,
-            "\ntotal_opex",
-            total_opex,
-            "\nbase",
-            self.cost_Calculator.baseline_cost,
-            "\nscore",
-            self.cost_Calculator.score
-        )
-        return policy, total_opex
-    
 
-    def count_difference(self, p, pre_p):
-        difference = sum(c1 != c2 for c1, c2 in zip(p, pre_p))
-        return difference
-
-    # def calculate_opex(self, slices, policy, inputs, t, action_cost):
-    #     """
-    #     计算给定部署策略的OPEX
-    #     """
-    #     difference = 0
-    #     OPEX = 0
-    #     cost_calculator = Cost_Calculator(*inputs, policy)
-
-    #     for i,s in enumerate(slices):
-    #         p = policy[i][t]
-    #         if t > 0:
-    #             pre_p = policy[i][t - 1]
-    #             difference = sum(c1 != c2 for c1, c2 in zip(p, pre_p))
-    #         if p == 'CCC':
-    #             OPEX += cost_calculator.cost_CCC(s, difference, t)[3]
-    #         elif p == 'BBB':
-    #             OPEX += cost_calculator.cost_BBB(s, difference, t)[3]
-    #         elif p == 'CCB':
-    #             OPEX += cost_calculator.cost_CCB(s, difference, t)[3]
-    #         elif p == 'CBB':
-    #             OPEX += cost_calculator.cost_CBB(s, difference, t)[3]
-    #         #OPEX += cost_calculator.cost_CCC(slices[i], 0, t)  # 默认计算CCC的OPEX，可以根据实际情况替换成其他部署策略的计算方法
-
-    #     return OPEX
+        return policy, self.cost_Calculator.OPEX

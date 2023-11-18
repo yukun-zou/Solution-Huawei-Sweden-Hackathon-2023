@@ -33,6 +33,8 @@ class Cost_Calculator:
     IO_costs = []
     execution_time = 0
     score = 0
+    BBU_resource_per_t=[CPU*B,MEM*B,ACC*B]
+    
 
     t_sum=[]
     def __init__(
