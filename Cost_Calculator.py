@@ -63,7 +63,7 @@ class Cost_Calculator:
         self.X = X
         self.slices = slices
         self.policy = policy
-        self.current_t=0
+        
 
     def calculate_cloud_cost(
         self, traffic, CPU_required, MEM_required, ACC_required, CPU_cost, MEM_cost, X
@@ -119,7 +119,7 @@ class Cost_Calculator:
         OPEX = cloud_cost + BBU_cost + IO_cost + action_cost
         return OPEX
 
-    def cost_CCC(self, s, relocation):
+    def cost_CCC(self, s, relocation,t):
         """
         calculate the cost of the policy CCC
         """
@@ -131,7 +131,7 @@ class Cost_Calculator:
         total_acc = s["CU"][2] + s["DU"][2] + s["PHY"][2]
 
         cloud_cost = self.calculate_cloud_cost(
-            s["traffic"][self.current_t],
+            s["traffic"][t],
             total_cpu,
             total_mem,
             total_acc,
@@ -142,7 +142,7 @@ class Cost_Calculator:
 
         BBU_cost = 0
         # LD io cost
-        IO_cost = self.calculate_IO_cost(s["traffic"][self.current_t], s["IO"][3])
+        IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][3])
 
         action_cost = self.calculate_action_cost(relocation, self.action_cost)
 
@@ -150,7 +150,7 @@ class Cost_Calculator:
 
         return OPEX
 
-    def cost_BBB(self, s, relocation):
+    def cost_BBB(self, s, relocation,t):
         """
         calculate the cost of the policy CCB
         """
@@ -173,7 +173,7 @@ class Cost_Calculator:
             total_acc,
         )
         # LA io cost
-        IO_cost = self.calculate_IO_cost(s["traffic"][self.current_t], s["IO"][0])
+        IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][0])
 
         action_cost = self.calculate_action_cost(relocation, self.action_cost)
 
@@ -181,7 +181,7 @@ class Cost_Calculator:
 
         return OPEX
 
-    def cost_CCB(self, s, relocation):
+    def cost_CCB(self, s, relocation,t):
         """
         calculate the cost of the policy CCB
         """
@@ -198,7 +198,7 @@ class Cost_Calculator:
         BBU_acc = s["PHY"][2]
 
         cloud_cost = self.calculate_cloud_cost(
-            s["traffic"][self.current_t],
+            s["traffic"][t],
             cloud_cpu,
             cloud_mem,
             cloud_acc,
@@ -211,7 +211,7 @@ class Cost_Calculator:
             self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc
         )
         # LA io cost
-        IO_cost = self.calculate_IO_cost(s["traffic"][self.current_t], s["IO"][2])
+        IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][2])
 
         action_cost = self.calculate_action_cost(relocation, self.action_cost)
 
@@ -219,7 +219,7 @@ class Cost_Calculator:
 
         return OPEX
 
-    def cost_CBB(self, s, relocation):
+    def cost_CBB(self, s, relocation,t):
         """
         calculate the cost of the policy CBB
         """
@@ -236,7 +236,7 @@ class Cost_Calculator:
         BBU_acc = s["DU"][2] + s["PHY"][2]
 
         cloud_cost = self.calculate_cloud_cost(
-            s["traffic"][self.current_t],
+            s["traffic"][t],
             cloud_cpu,
             cloud_mem,
             cloud_acc,
@@ -249,7 +249,7 @@ class Cost_Calculator:
             self.CPU, self.MEM, self.ACC, self.cost_per_set, BBU_cpu, BBU_mem, BBU_acc
         )
         # LA io cost
-        IO_cost = self.calculate_IO_cost(s["traffic"][self.current_t], s["IO"][1])
+        IO_cost = self.calculate_IO_cost(s["traffic"][t], s["IO"][1])
 
         action_cost = self.calculate_action_cost(relocation, self.action_cost)
 
@@ -270,19 +270,19 @@ class Cost_Calculator:
         '''
         #TODO: add the cost of all slices,关于relocation的问题需要讨论
         for t in range(self.T):
-            self.current_t=t
+         
             for s,p in zip(self.slices,self.policy):
                 print(s,p)
                 if p=='CCC':
-                    self.OPEX+=self.cost_CCC(s,0)
+                    self.OPEX+=self.cost_CCC(s,0,t)
                 elif p=='BBB':
-                    self.OPEX+=self.cost_BBB(s,0)
+                    self.OPEX+=self.cost_BBB(s,0,t)
                 elif p=='CCB':
-                    self.OPEX+=self.cost_CCB(s,0)
+                    self.OPEX+=self.cost_CCB(s,0,t)
                 elif p=='CBB':
-                    self.OPEX+=self.cost_CBB(s,0)
+                    self.OPEX+=self.cost_CBB(s,0,t)
                 else:
-                    self.OPEX+=self.cost_CCC(s,0)
+                    self.OPEX+=self.cost_CCC(s,0,t)
             return self.OPEX
     
     
