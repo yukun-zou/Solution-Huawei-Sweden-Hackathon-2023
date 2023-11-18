@@ -284,7 +284,7 @@ class Cost_Calculator:
         calculate the score of the policy
         """
         self.score= max(0, self.baseline_cost / self.OPEX - 1)
-
+        return self.score
     def set_policy(self, policy):
         self.policy = policy
 
