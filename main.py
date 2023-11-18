@@ -15,7 +15,7 @@ def main():
     designer = Policy_Designer()
     policy = designer.policy_output()
     
-    cost_builder=Cost_Calculator(*inputs,['CCC']*len(inputs[-1]))
+    cost_builder=Cost_Calculator(*inputs,['CCB']*len(inputs[-1]))
 
     costs = cost_builder.cost_builder()
     print(costs)

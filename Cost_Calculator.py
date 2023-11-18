@@ -1,3 +1,4 @@
+#Cost_Calculator.py is used to calculate the cost of the policy=cost builder
 import math
 
 
@@ -90,12 +91,13 @@ class Cost_Calculator:
         """
 
         BBU_sets = max(
-            math.ceil(CPU / CPU_required),
-            math.ceil(MEM / MEM_required),
-            math.ceil(ACC / ACC_required),
+            math.ceil(CPU_required/CPU ),
+            math.ceil(MEM_required/MEM ),
+            math.ceil(ACC_required/ACC  ),
         )
+        
         BBU_cost = BBU_sets * cost_per_set
-
+        print("BBU sets", BBU_sets,"BBU boards" ,self.B ,"BBU cost", BBU_cost)
         return BBU_cost
 
     def calculate_IO_cost(self, traffic, IO_linkUsed) -> int:
@@ -270,7 +272,7 @@ class Cost_Calculator:
         '''
         #TODO: add the cost of all slices,关于relocation的问题需要讨论
         for t in range(self.T):
-         
+            # print("time",t,self.T)
             for s,p in zip(self.slices,self.policy):
                 print(s,p)
                 if p=='CCC':
@@ -283,58 +285,58 @@ class Cost_Calculator:
                     self.OPEX+=self.cost_CBB(s,0,t)
                 else:
                     self.OPEX+=self.cost_CCC(s,0,t)
-            return self.OPEX
+        return self.OPEX
     
     
     
 
-    def calculate_costs(
-        self,
-        baseline_cost,
-        action_cost,
-        CPU_cost,
-        MEM_cost,
-        B,
-        CPU,
-        MEM,
-        ACC,
-        cost_per_set,
-        N,
-        T,
-        X,
-        slices,
-    ):
-        """
-        calculate the cost of the policy
-        OPEX=sum(cloud costs, BBU costs, I/O costs, action costs)
-        BBU sets=max(CPU/CPU_per_set, MEM/MEM_per_set,ACC/ACC_per_set)
-        BBU cost=cost_per_set*BBU sets
-        cloud costs=CPU_cost*traffic*CPU_required+MEM_cost*traffic*MEM_required+ACC*X*CPU_cost*traffic
-        IO costs=traffic*IO_linkUsed
-        Action costs=action_cost*relocation
-        """
-        cloud_costs = [0] * T
-        # BBU_costs = [cost_per_set * B] * T
-        BBU_costs = [0] * T
-        IO_costs = [0] * T
-        # action_costs = [action_cost * N] * T
-        action_costs = [0 * N] * T
-        for s in slices:
-            for t in range(T):
-                cloud_costs[t] += (
-                    (s["CU"][0] + s["DU"][0] + s["PHY"][0])
-                    * s["traffic"][t]
-                    * CPU_cost
-                )
-                cloud_costs[t] += (
-                    (s["CU"][1] + s["DU"][1] + s["PHY"][1])
-                    * s["traffic"][t]
-                    * MEM_cost
-                )
-                IO_costs[t] += s["IO"][0] * s["traffic"][t]
+    # def calculate_costs(
+    #     self,
+    #     baseline_cost,
+    #     action_cost,
+    #     CPU_cost,
+    #     MEM_cost,
+    #     B,
+    #     CPU,
+    #     MEM,
+    #     ACC,
+    #     cost_per_set,
+    #     N,
+    #     T,
+    #     X,
+    #     slices,
+    # ):
+    #     """
+    #     calculate the cost of the policy
+    #     OPEX=sum(cloud costs, BBU costs, I/O costs, action costs)
+    #     BBU sets=max(CPU/CPU_per_set, MEM/MEM_per_set,ACC/ACC_per_set)
+    #     BBU cost=cost_per_set*BBU sets
+    #     cloud costs=CPU_cost*traffic*CPU_required+MEM_cost*traffic*MEM_required+ACC*X*CPU_cost*traffic
+    #     IO costs=traffic*IO_linkUsed
+    #     Action costs=action_cost*relocation
+    #     """
+    #     cloud_costs = [0] * T
+    #     # BBU_costs = [cost_per_set * B] * T
+    #     BBU_costs = [0] * T
+    #     IO_costs = [0] * T
+    #     # action_costs = [action_cost * N] * T
+    #     action_costs = [0 * N] * T
+    #     for s in slices:
+    #         for t in range(T):
+    #             cloud_costs[t] += (
+    #                 (s["CU"][0] + s["DU"][0] + s["PHY"][0])
+    #                 * s["traffic"][t]
+    #                 * CPU_cost
+    #             )
+    #             cloud_costs[t] += (
+    #                 (s["CU"][1] + s["DU"][1] + s["PHY"][1])
+    #                 * s["traffic"][t]
+    #                 * MEM_cost
+    #             )
+    #             IO_costs[t] += s["IO"][0] * s["traffic"][t]
 
-        total_costs = [
-            cloud_costs[t] + BBU_costs[t] + IO_costs[t] + action_costs[t]
-            for t in range(T)
-        ]
-        return cloud_costs, BBU_costs, IO_costs, action_costs, total_costs
+    #     total_costs = [
+    #         cloud_costs[t] + BBU_costs[t] + IO_costs[t] + action_costs[t]
+    #         for t in range(T)
+    #     ]
+    #     return cloud_costs, BBU_costs, IO_costs, action_costs, total_costs
