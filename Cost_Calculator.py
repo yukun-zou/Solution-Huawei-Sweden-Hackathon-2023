@@ -95,7 +95,6 @@ class Cost_Calculator:
             math.ceil(MEM_required/MEM ),
             math.ceil(ACC_required/ACC  ),
         )
-        
         BBU_cost = BBU_sets * cost_per_set
         print("BBU sets", BBU_sets,"BBU boards" ,self.B ,"BBU cost", BBU_cost)
         return BBU_cost

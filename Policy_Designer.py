@@ -46,6 +46,7 @@ class Policy_Designer:
         """
         计算给定部署策略的OPEX
         """
+        difference = 0
         OPEX = 0
         cost_calculator = Cost_Calculator(*inputs, policy)
 
