@@ -37,31 +37,53 @@ class Problem :
         self.episode_length = episode_length
         self.num_slices = num_slices
         self.slices = slices
+        
+        #锁==action_cost的升级版 transition time Z
+        self.lock_list = [lock() for i in range(self.episode_length)]
+        #
 
-class io_lock:
-    def __init__(self, lock = False, time = 0):
-        self.lock = lock
+class lock:
+    '''
+    lock类，用于锁住instance的迁移冷却时间
+    '''
+    time = 0
+    lock = {'CU':False,'DU':False,'PHY':False}#CU,DU,PHY
+    
+    def __init__(self,time=0,lock={'CU':False,'DU':False,'PHY':False}):
         self.time = time
+        self.lock = lock
+        
     #每过一个timestep，lock的时间减一
     def update(self):
-        if self.lock:
-            self.time -= 1
-            if self.time == 0:
-                self.lock = False
-    #锁住io，持续time个timelostep
-    def lock_io(self, time):
-        self.lock = True
-        self.time = time
+        '''
+        每过一个timestep，lock的时间减一
+        '''
+        if self.lock['CU']:
+            self.time['CU'] -= 1
+            if self.time['CU'] == 0:
+                self.lock['CU'] = False
+        if self.lock['DU']:
+            self.time['DU'] -= 1
+            if self.time['DU'] == 0:
+                self.lock['DU'] = False
+        if self.lock['PHY']:
+            self.time['PHY'] -= 1
+            if self.time['PHY'] == 0:
+                self.lock['PHY'] = False
+    #锁住instance    
+    def lock_instance(self, itype):
+        self.lock[itype] = True
+        self.time[itype] = self.time
     #判断io是否被锁住
-    def is_locked(self):
-        return self.lock
+    def is_locked(self, itype):
+        return self.lock[itype]
     #返回io还剩多少时间被锁住
-    def get_time(self):
-        return self.time
+    def get_time(self, itype):
+        return self.time[itype]
     #解锁
-    def unlock(self):
-        self.lock = False
-        self.time = 0
+    def unlock(self, itype):
+        self.lock[itype] = False
+        self.time[itype] = 0
 
 class S_T(Enum):
     CU  = 1
@@ -70,10 +92,11 @@ class S_T(Enum):
 
 
 class Slice :
-    def __init__(self, services = [], io = [], traffic = []):
+    def __init__(self, services = [], io = [], traffic = [], transition=0):#读取文件的地方要改一下
         self.services = services
         self.io = io
         self.traffic  = traffic
+        self.transition = transition
 
 class Service :
     def __init__(self, parent_slice = 0, service_type = S_T.CU, CPU = 0, MEM  = 0, ACC = 0):
@@ -224,6 +247,7 @@ def slice_cost(p:Problem, sol:Solution, sl:Slice, time:int, alloc:str):
             sol.BBU_alloc[time].CPU += sl.traffic[time] * s.CPU
             sol.BBU_alloc[time].MEM += sl.traffic[time] * s.MEM
             sol.BBU_alloc[time].ACC += sl.traffic[time] * s.ACC
+            
     return ret
 
 ### SOLUTION STRATEGY : all_cloud
