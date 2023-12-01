@@ -20,11 +20,13 @@ from timeit import default_timer as timer
 # Modelling the problem
 
 class Problem :
-    def __init__(self, bs = 0, action_cost = 0,  cloud_CPU_cost = 0, cloud_MEM_cost = 0, cloud_ACC_cost = 0, \
+    def __init__(self, bs = 0, transition = 0,bandwidth=0,penalty_cost=0,  cloud_CPU_cost = 0, cloud_MEM_cost = 0, cloud_ACC_cost = 0, \
      BBU_sets = 0, BBU_CPU_set = 0, BBU_MEM_set = 0, BBU_ACC_set = 0, BBU_cost_set = 0,\
      CPU_ACC_ratio = 0, trans_period = 0, episode_length = 0, num_slices = 0, slices = []):
         self.bs = bs # Baseline cost
-        self.action_cost    = action_cost
+        self.transition    = transition
+        self.bandwidth     = bandwidth
+        self.penalty_cost   = penalty_cost
         self.cloud_CPU_cost = cloud_CPU_cost
         self.cloud_MEM_cost = cloud_MEM_cost
         self.cloud_ACC_cost = cloud_ACC_cost
@@ -39,50 +41,50 @@ class Problem :
         self.slices = slices
         
         #锁==action_cost的升级版 transition time Z
-        self.lock_list = [lock() for i in range(self.episode_length)]
-        #
+        self.lock_list = [instance_lock() for i in range(self.episode_length)]
+        
 
-class lock:
+class instance_lock:
     '''
     lock类，用于锁住instance的迁移冷却时间
     '''
     time = 0
-    lock = {'CU':False,'DU':False,'PHY':False}#CU,DU,PHY
+    lock_dict = {'CU':False,'DU':False,'PHY':False}#CU,DU,PHY
     
-    def __init__(self,time=0,lock={'CU':False,'DU':False,'PHY':False}):
+    def __init__(self,time=0,lock_dict={'CU':False,'DU':False,'PHY':False}):
         self.time = time
-        self.lock = lock
+        self.lock_dict = lock_dict
         
     #每过一个timestep，lock的时间减一
     def update(self):
         '''
         每过一个timestep，lock的时间减一
         '''
-        if self.lock['CU']:
+        if self.lock_dict['CU']:
             self.time['CU'] -= 1
             if self.time['CU'] == 0:
-                self.lock['CU'] = False
-        if self.lock['DU']:
+                self.lock_dict['CU'] = False
+        if self.lock_dict['DU']:
             self.time['DU'] -= 1
             if self.time['DU'] == 0:
-                self.lock['DU'] = False
-        if self.lock['PHY']:
+                self.lock_dict['DU'] = False
+        if self.lock_dict['PHY']:
             self.time['PHY'] -= 1
             if self.time['PHY'] == 0:
-                self.lock['PHY'] = False
+                self.lock_dict['PHY'] = False
     #锁住instance    
     def lock_instance(self, itype):
-        self.lock[itype] = True
+        self.lock_dict[itype] = True
         self.time[itype] = self.time
     #判断io是否被锁住
     def is_locked(self, itype):
-        return self.lock[itype]
+        return self.lock_dict[itype]
     #返回io还剩多少时间被锁住
     def get_time(self, itype):
         return self.time[itype]
     #解锁
     def unlock(self, itype):
-        self.lock[itype] = False
+        self.lock_dict[itype] = False
         self.time[itype] = 0
 
 class S_T(Enum):
@@ -116,7 +118,7 @@ class Solution :
         self.BBU_Costs  = BBU_Costs
         self.IO_OPEX    = IO_OPEX
         self.IO_Costs   = IO_Costs
-        self.action_cost= 0
+        self.penalty_cost= 0 #要最后计算
         self.total_cost = 0
         self.allocation = allocation # List of lists, where each element in the 2nd list is the alloc for the slice at T(t)
         self.score      = 0
@@ -128,22 +130,23 @@ class Solution :
             self.BBU_Costs[i] = sets * p.BBU_cost_set 
 
     def calculate_action_costs(self, p:Problem) :
-        cost = 0
-        for i in range(len(self.allocation)) :
-            for j in range(1,len(self.allocation[i])) :
-                if self.allocation[i][j] == self.allocation[i][j-1] :
-                    pass
-                else :
-                    a = [char for char in self.allocation[i][j]]
-                    b = [char for char in self.allocation[i][j-1]]
-                    for k in range(len(a)) :
-                        if not a[k] == b[k] :
-                            self.action_cost += p.action_cost
+        pass
+        # cost = 0
+        # for i in range(len(self.allocation)) :
+        #     for j in range(1,len(self.allocation[i])) :
+        #         if self.allocation[i][j] == self.allocation[i][j-1] :
+        #             pass
+        #         else :
+        #             a = [char for char in self.allocation[i][j]]
+        #             b = [char for char in self.allocation[i][j-1]]
+        #             for k in range(len(a)) :
+        #                 if not a[k] == b[k] :
+        #                     self.action_cost += p.action_cost
 
 
 
     def total_OPEX(self):
-        return self.CLOUD_OPEX + self.BBU_OPEX + self.IO_OPEX + self.action_cost
+        return self.CLOUD_OPEX + self.BBU_OPEX + self.IO_OPEX + self.penalty_cost
 
     def set_score(self, baseline:int) :
         self.score = max(0, float(baseline) / self.total_OPEX() - 1)
@@ -151,10 +154,10 @@ class Solution :
 
     def calculate_costs(self, p:Problem) :
         self.calculate_bbu_costs(p)
-        self.calculate_action_costs(p)
+        # self.calculate_action_costs(p)
         self.CLOUD_OPEX = sum(self.CLOUD_Costs)
         self.BBU_OPEX   = sum(self.BBU_Costs)
-        self.IO_OPEX    = sum(self.IO_Costs)
+        self.IO_OPEX    = sum(self.IO_Costs)+self.penalty_cost
         self.total_cost = self.total_OPEX()
         self.set_score(p.bs)
         return self.total_cost
@@ -178,9 +181,11 @@ def read_slice(p:Problem,r:str,i:str,tr:str):
     s.io = [int(n) for n in i]
     s.traffic = [int(z) for z in tr]
     p.slices.append(s)
-
-def read_problem(file:str='./testcases/input.csv', delimiter:str=' '):
+#TODO
+# def read_problem(file:str='./testcases/input.csv', delimiter:str=' '):
+def read_problem(file:str='./toy_example.csv', delimiter:str=' '):
     p = Problem()
+    # p = Problem()
     p.slices = []
 
     with open(file, mode='r') as csv_file:
@@ -191,7 +196,9 @@ def read_problem(file:str='./testcases/input.csv', delimiter:str=' '):
         for r in csv_reader:
             if line_count == 0:
                 p.bs = int(r[0])
-                p.action_cost   = int(r[1])
+                p.transition   = int(r[1])
+                p.bandwidth    = int(r[2])
+                p.penalty_cost  = int(r[3])
             if line_count == 1:
                 p.cloud_CPU_cost = int(r[0])
                 p.cloud_MEM_cost = int(r[1])
@@ -219,7 +226,7 @@ def read_problem(file:str='./testcases/input.csv', delimiter:str=' '):
             line_count += 1
     return p
 
-
+#TODO
 def print_solution (s:Solution, p:Problem, file:str = './solutions/solution.csv', delimiter:str = ' ', time:int = 0):
     with open(file, mode='w',newline='') as csv_file:
         writer = csv.writer(csv_file, delimiter=delimiter, quotechar='"', quoting=csv.QUOTE_NONE,  escapechar= ' ')
@@ -312,7 +319,7 @@ def all_cloud(p:Problem):
                 sol.IO_Costs[i]    += sl.io[3] * sl.traffic[i]
         sol.allocation.append(a)
         
-
+    
     sol.calculate_costs(p)
 
     return sol
