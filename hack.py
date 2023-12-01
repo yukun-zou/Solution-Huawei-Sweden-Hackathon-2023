@@ -48,11 +48,12 @@ class instance_lock:
     '''
     lock类，用于锁住instance的迁移冷却时间
     '''
-    time = 0
+    time = {'CU':0,'DU':0,'PHY':0}
+    transition = 0
     lock_dict = {'CU':False,'DU':False,'PHY':False}#CU,DU,PHY
     
-    def __init__(self,time=0,lock_dict={'CU':False,'DU':False,'PHY':False}):
-        self.time = time
+    def __init__(self,transition=0,lock_dict={'CU':False,'DU':False,'PHY':False}):
+        self.transition = transition
         self.lock_dict = lock_dict
         
     #每过一个timestep，lock的时间减一
@@ -75,7 +76,7 @@ class instance_lock:
     #锁住instance    
     def lock_instance(self, itype):
         self.lock_dict[itype] = True
-        self.time[itype] = self.time
+        self.time[itype] = self.transition
     #判断io是否被锁住
     def is_locked(self, itype):
         return self.lock_dict[itype]
@@ -133,6 +134,7 @@ class Solution :
     def calculate_penalty_costs(self, p:Problem):
         for i in range(p.episode_length) :
             self.IO_Costs[i] += max(0, self.IO_Costs[i] - p.bandwidth) * p.penalty_cost
+            print()
                 
                 
     def calculate_action_costs(self, p:Problem) :
@@ -180,8 +182,8 @@ class BBU_Allocation :
 
 ### Input and Output        
 
-def read_slice(p:Problem,r:str,i:str,tr:str):
-    s = Slice([], [], [])
+def read_slice(p:Problem,r:str,i:str,tr:str,transition:int):
+    s = Slice([], [], [],transition)
     s.services.append(Service(s, S_T.CU , int(r[0]), int(r[1]), int(r[2])))
     s.services.append(Service(s, S_T.DU , int(r[3]), int(r[4]), int(r[5])))
     s.services.append(Service(s, S_T.PHY, int(r[6]), int(r[7]), int(r[8])))
@@ -229,7 +231,7 @@ def read_problem(file:str='./toy_example.csv', delimiter:str=' '):
                 if s_l == 3 :
                     i = r
                 if s_l == 4 :
-                    read_slice(p, l, i, r)
+                    read_slice(p, l, i, r, p.transition)
             line_count += 1
     return p
 
@@ -280,6 +282,7 @@ def all_cloud(p:Problem):
         a = []
         for i in range(p.episode_length) :
             flag=0
+            
             if(
                 sol.BBU_alloc[i].CPU +  sl.traffic[i] *(sl.services[0].CPU+sl.services[1].CPU+sl.services[2].CPU)
                                                         <= p.BBU_CPU_set*p.BBU_sets and
@@ -291,7 +294,11 @@ def all_cloud(p:Problem):
                 # a.append("BBB")
                 # a[-1]#上次的策略
                 #根据i-1的allocation判断是否需要迁移，以及锁的情况
+                if i==0:
+                    a.append('BBB')
                 
+                    flag=1
+                    
                 if i > 0:
                     
                     if a[-1] == 'BBB':
@@ -299,19 +306,29 @@ def all_cloud(p:Problem):
                         flag=1
                     elif a[-1] == 'CBB':
                         if not sl.lock_list.is_locked('CU'):
+                            sl.lock_list.update()
                             a.append('BBB')
+                            sl.lock_list.lock_instance('CU')
+                            
                             flag=1
                     elif a[-1] == 'CCB':
                         if not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU'):
+                            sl.lock_list.update()
                             a.append('BBB')
+                            sl.lock_list.lock_instance('CU')
+                            sl.lock_list.lock_instance('DU')
                             flag=1
         
                     elif a[-1] == 'CCC':
                         if not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU') and not sl.lock_list.is_locked('PHY'):
+                            sl.lock_list.update()
                             a.append('BBB')
+                            sl.lock_list.lock_instance('CU')
+                            sl.lock_list.lock_instance('DU')
+                            sl.lock_list.lock_instance('PHY')
                             flag=1
                 if flag==1:
-                    sl.lock_list.update()
+                    
                     sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "BBB")
                     sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
                     continue
@@ -325,26 +342,39 @@ def all_cloud(p:Problem):
                 sol.BBU_alloc[i].ACC + sl.traffic[i] * (sl.services[0].ACC+sl.services[1].ACC+sl.services[2].ACC)
                 <= p.BBU_ACC_set
             ):
+                if i==0:
+                    a.append('CBB')
+                
+                    flag=1
                 if i > 0:
                     
                     if a[-1] == 'BBB' and not sl.lock_list.is_locked('CU'):
+                        sl.lock_list.update()
                         a.append('CBB')
+                        sl.lock_list.lock_instance('CU')
                         flag=1
                     elif a[-1] == 'CBB':
-                        a.append('BBB')
+                        
+                        a.append('CBB')
+                        
                         flag=1
                     elif a[-1] == 'CCB':
                         if not sl.lock_list.is_locked('DU'):
+                            sl.lock_list.update()
                             a.append('CBB')
+                            sl.lock_list.lock_instance('DU')
                             flag=1
                     elif a[-1] == 'CCC':
                         if not sl.lock_list.is_locked('DU') and not sl.lock_list.is_locked('PHY'):
+                            sl.lock_list.update()
                             a.append('CBB')
+                            sl.lock_list.lock_instance('DU')
+                            sl.lock_list.lock_instance('PHY')
                             flag=1
                 if flag==1:
-                    sl.lock_list.update()
+                    
                     sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CBB")
-                    sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    sol.IO_Costs[i]    += sl.io[1] * sl.traffic[i]
                     continue
                 
             if(
@@ -355,25 +385,37 @@ def all_cloud(p:Problem):
                 sol.BBU_alloc[i].ACC + sl.traffic[i] * (sl.services[0].ACC+sl.services[1].ACC+sl.services[2].ACC)
                 <= p.BBU_ACC_set
             ):
+                if i==0:
+                    a.append('CCB')
+                
+                    flag=1
                 if i > 0:
                     
                     if a[-1] == 'BBB' and not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU'):
+                        sl.lock_list.update()
                         a.append('CCB')
+                        sl.lock_list.lock_instance('CU')
+                        sl.lock_list.lock_instance('DU')
+                        
                         flag=1
                     elif a[-1] == 'CBB' and not sl.lock_list.is_locked('DU'):
+                        sl.lock_list.update()
                         a.append('CCB')
+                        sl.lock_list.lock_instance('DU')
                         flag=1
                     elif a[-1] == 'CCB':                        
                         a.append('CCB')
                         flag=1
                     elif a[-1] == 'CCC':
                         if not sl.lock_list.is_locked('PHY'):
+                            sl.lock_list.update()
                             a.append('CCB')
+                            sl.lock_list.lock_instance('PHY')
                             flag=1
                 if flag==1:
-                    sl.lock_list.update()
+                    
                     sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCB")
-                    sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    sol.IO_Costs[i]    += sl.io[2] * sl.traffic[i]
                     continue
                 
                 # sol.BBU_alloc[i].CPU+= sl.traffic[i] * sl.services[0].CPU
@@ -382,8 +424,17 @@ def all_cloud(p:Problem):
                 
                 
             if flag==0 :#要么有锁 要么放不进BBU,放进CLOUD
-                if not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU') and not sl.lock_list.is_locked('PHY'):
+                if i==0:
                     a.append('CCC')
+                    sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, a[-1])
+                    sol.IO_Costs[i]    += sl.io[3] * sl.traffic[i]
+                    
+                elif not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU') and not sl.lock_list.is_locked('PHY'):
+                    sl.lock_list.update()
+                    a.append('CCC')
+                    sl.lock_list.lock_instance('CU')
+                    sl.lock_list.lock_instance('DU')
+                    sl.lock_list.lock_instance('PHY')
                     sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, a[-1])
                     sol.IO_Costs[i]    += sl.io[3] * sl.traffic[i]
                 else:
@@ -393,14 +444,14 @@ def all_cloud(p:Problem):
                         sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
                     elif a[-1]=='CBB':
                         sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CBB")
-                        sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                        sol.IO_Costs[i]    += sl.io[1] * sl.traffic[i]
                     elif a[-1]=='CCB':
                         sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCB")
-                        sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                        sol.IO_Costs[i]    += sl.io[2] * sl.traffic[i]
                     elif a[-1]=='CCC':
                         sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCC")
-                        sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]         
-                sl.lock_list.update()
+                        sol.IO_Costs[i]    += sl.io[3] * sl.traffic[i]         
+                    sl.lock_list.update()
         
         #for循环结束后，a是一个slice的allocation
         sol.allocation.append(a)
@@ -431,23 +482,23 @@ def solve(d:str, f:str):
 
 
 if __name__ == "__main__":
-    t='./'
-    f='toy_example_final.txt'
-    ans = solve(t,f)
-    # opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
+    # t='./'
+    # f='toy_example_final.txt'
+    # ans = solve(t,f)
+    opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
 
-    # t = './testcases/'
+    t = './testcases/'
 
-    # if "-t" in opts:
-    #     t = sys.argv[sys.argv.index("-t")+1];
+    if "-t" in opts:
+        t = sys.argv[sys.argv.index("-t")+1];
 
-    # if "-f" in opts:
-    #     f = sys.argv[sys.argv.index("-f")+1];
-    #     solve(t,f)
+    if "-f" in opts:
+        f = sys.argv[sys.argv.index("-f")+1];
+        solve(t,f)
 
-    # else : 
-    #     dir_list = os.listdir(t)
+    else : 
+        dir_list = os.listdir(t)
 
-    #     for f in dir_list:
-    #         if '.txt' in f:
-    #             ans = solve(t,f)
+        for f in dir_list:
+            if '.txt' in f:
+                ans = solve(t,f)
