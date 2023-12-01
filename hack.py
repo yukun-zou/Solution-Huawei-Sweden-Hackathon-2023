@@ -41,7 +41,7 @@ class Problem :
         self.slices = slices
         
         #锁==action_cost的升级版 transition time Z
-        self.lock_list = [instance_lock() for i in range(self.episode_length)]
+        # self.lock_list = [instance_lock() for i in range(self.episode_length)]
         
 
 class instance_lock:
@@ -99,6 +99,8 @@ class Slice :
         self.io = io
         self.traffic  = traffic
         self.transition = transition
+        #初始化锁
+        self.lock_list = instance_lock(transition)
 
 class Service :
     def __init__(self, parent_slice = 0, service_type = S_T.CU, CPU = 0, MEM  = 0, ACC = 0):
@@ -128,7 +130,11 @@ class Solution :
         for i in range(p.episode_length) :
             sets = max(math.ceil(self.BBU_alloc[i].CPU/p.BBU_CPU_set), math.ceil(self.BBU_alloc[i].MEM/p.BBU_MEM_set), math.ceil(self.BBU_alloc[i].ACC/p.BBU_ACC_set))
             self.BBU_Costs[i] = sets * p.BBU_cost_set 
-
+    def calculate_penalty_costs(self, p:Problem):
+        for i in range(p.episode_length) :
+            self.IO_Costs[i] += max(0, self.IO_Costs[i] - p.bandwidth) * p.penalty_cost
+                
+                
     def calculate_action_costs(self, p:Problem) :
         pass
         # cost = 0
@@ -154,6 +160,7 @@ class Solution :
 
     def calculate_costs(self, p:Problem) :
         self.calculate_bbu_costs(p)
+        self.calculate_penalty_costs(p)
         # self.calculate_action_costs(p)
         self.CLOUD_OPEX = sum(self.CLOUD_Costs)
         self.BBU_OPEX   = sum(self.BBU_Costs)
@@ -267,11 +274,12 @@ def all_cloud(p:Problem):
     sol.BBU_alloc   = [BBU_Allocation(0,0,0) for i in range(p.episode_length)]
     sol.IO_Costs    = [0] * p.episode_length
     sol.allocation  = []
-
-
+    
+#TODO:BBU放不下，同时instance有锁无法从BBU迁移到CLOUD
     for index, sl in enumerate(p.slices) :
         a = []
         for i in range(p.episode_length) :
+            flag=0
             if(
                 sol.BBU_alloc[i].CPU +  sl.traffic[i] *(sl.services[0].CPU+sl.services[1].CPU+sl.services[2].CPU)
                                                         <= p.BBU_CPU_set*p.BBU_sets and
@@ -280,25 +288,66 @@ def all_cloud(p:Problem):
                 sol.BBU_alloc[i].ACC + sl.traffic[i] * (sl.services[0].ACC+sl.services[1].ACC+sl.services[2].ACC)
                 <= p.BBU_ACC_set*p.BBU_sets
             ):
-                a.append("BBB")
-                # sol.BBU_alloc[i].CPU+= sl.traffic[i] * sl.services[0].CPU
-                # sol.BBU_alloc[i].MEM+= sl.traffic[i] * sl.services[0].MEM
-                # sol.BBU_alloc[i].ACC+= sl.traffic[i] * sl.services[0].ACC
-                sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "BBB")
-                sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
-            elif(
+                # a.append("BBB")
+                # a[-1]#上次的策略
+                #根据i-1的allocation判断是否需要迁移，以及锁的情况
+                
+                if i > 0:
+                    
+                    if a[-1] == 'BBB':
+                        a.append('BBB')
+                        flag=1
+                    elif a[-1] == 'CBB':
+                        if not sl.lock_list.is_locked('CU'):
+                            a.append('BBB')
+                            flag=1
+                    elif a[-1] == 'CCB':
+                        if not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU'):
+                            a.append('BBB')
+                            flag=1
+        
+                    elif a[-1] == 'CCC':
+                        if not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU') and not sl.lock_list.is_locked('PHY'):
+                            a.append('BBB')
+                            flag=1
+                if flag==1:
+                    sl.lock_list.update()
+                    sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "BBB")
+                    sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    continue
+            if(
                 sol.BBU_alloc[i].CPU +  sl.traffic[i] *(sl.services[0].CPU+sl.services[1].CPU+sl.services[2].CPU)
-                                                        > p.BBU_CPU_set and
+                                                        > p.BBU_CPU_set 
+                                                        and
                 sol.BBU_alloc[i].MEM + sl.traffic[i] * (sl.services[0].MEM+sl.services[1].MEM+sl.services[2].MEM)
-                                                        <= p.BBU_MEM_set and
+                                                        <= p.BBU_MEM_set 
+                                                        and
                 sol.BBU_alloc[i].ACC + sl.traffic[i] * (sl.services[0].ACC+sl.services[1].ACC+sl.services[2].ACC)
                 <= p.BBU_ACC_set
             ):
-                            
-                a.append("CBB")
-                sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CBB")
-                sol.IO_Costs[i]    += sl.io[1] * sl.traffic[i]
-            elif(
+                if i > 0:
+                    
+                    if a[-1] == 'BBB' and not sl.lock_list.is_locked('CU'):
+                        a.append('CBB')
+                        flag=1
+                    elif a[-1] == 'CBB':
+                        a.append('BBB')
+                        flag=1
+                    elif a[-1] == 'CCB':
+                        if not sl.lock_list.is_locked('DU'):
+                            a.append('CBB')
+                            flag=1
+                    elif a[-1] == 'CCC':
+                        if not sl.lock_list.is_locked('DU') and not sl.lock_list.is_locked('PHY'):
+                            a.append('CBB')
+                            flag=1
+                if flag==1:
+                    sl.lock_list.update()
+                    sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CBB")
+                    sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    continue
+                
+            if(
                 sol.BBU_alloc[i].CPU +  sl.traffic[i] *(sl.services[0].CPU+sl.services[1].CPU+sl.services[2].CPU)
                                                         > p.BBU_CPU_set and
                 sol.BBU_alloc[i].MEM + sl.traffic[i] * (sl.services[0].MEM+sl.services[1].MEM+sl.services[2].MEM)
@@ -306,17 +355,54 @@ def all_cloud(p:Problem):
                 sol.BBU_alloc[i].ACC + sl.traffic[i] * (sl.services[0].ACC+sl.services[1].ACC+sl.services[2].ACC)
                 <= p.BBU_ACC_set
             ):
-                a.append("CCB")
+                if i > 0:
+                    
+                    if a[-1] == 'BBB' and not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU'):
+                        a.append('CCB')
+                        flag=1
+                    elif a[-1] == 'CBB' and not sl.lock_list.is_locked('DU'):
+                        a.append('CCB')
+                        flag=1
+                    elif a[-1] == 'CCB':                        
+                        a.append('CCB')
+                        flag=1
+                    elif a[-1] == 'CCC':
+                        if not sl.lock_list.is_locked('PHY'):
+                            a.append('CCB')
+                            flag=1
+                if flag==1:
+                    sl.lock_list.update()
+                    sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCB")
+                    sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    continue
+                
                 # sol.BBU_alloc[i].CPU+= sl.traffic[i] * sl.services[0].CPU
                 # sol.BBU_alloc[i].MEM+= sl.traffic[i] * sl.services[0].MEM
                 # sol.BBU_alloc[i].ACC+= sl.traffic[i] * sl.services[0].ACC
-                sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCB")
-                sol.IO_Costs[i]    += sl.io[2] * sl.traffic[i]
                 
-            else :
-                a.append("CCC")
-                sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCC")
-                sol.IO_Costs[i]    += sl.io[3] * sl.traffic[i]
+                
+            if flag==0 :#要么有锁 要么放不进BBU,放进CLOUD
+                if not sl.lock_list.is_locked('CU') and not sl.lock_list.is_locked('DU') and not sl.lock_list.is_locked('PHY'):
+                    a.append('CCC')
+                    sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, a[-1])
+                    sol.IO_Costs[i]    += sl.io[3] * sl.traffic[i]
+                else:
+                    a.append(a[-1])
+                    if a[-1]=='BBB':
+                        sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "BBB")
+                        sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    elif a[-1]=='CBB':
+                        sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CBB")
+                        sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    elif a[-1]=='CCB':
+                        sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCB")
+                        sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]
+                    elif a[-1]=='CCC':
+                        sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CCC")
+                        sol.IO_Costs[i]    += sl.io[0] * sl.traffic[i]         
+                sl.lock_list.update()
+        
+        #for循环结束后，a是一个slice的allocation
         sol.allocation.append(a)
         
     
@@ -345,21 +431,23 @@ def solve(d:str, f:str):
 
 
 if __name__ == "__main__":
+    t='./'
+    f='toy_example_final.txt'
+    ans = solve(t,f)
+    # opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
 
-    opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
+    # t = './testcases/'
 
-    t = './testcases/'
+    # if "-t" in opts:
+    #     t = sys.argv[sys.argv.index("-t")+1];
 
-    if "-t" in opts:
-        t = sys.argv[sys.argv.index("-t")+1];
+    # if "-f" in opts:
+    #     f = sys.argv[sys.argv.index("-f")+1];
+    #     solve(t,f)
 
-    if "-f" in opts:
-        f = sys.argv[sys.argv.index("-f")+1];
-        solve(t,f)
+    # else : 
+    #     dir_list = os.listdir(t)
 
-    else : 
-        dir_list = os.listdir(t)
-
-        for f in dir_list:
-            if '.txt' in f:
-                ans = solve(t,f)
+    #     for f in dir_list:
+    #         if '.txt' in f:
+    #             ans = solve(t,f)
