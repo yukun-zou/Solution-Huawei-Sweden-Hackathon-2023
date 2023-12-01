@@ -48,8 +48,8 @@ class io_lock:
             self.time -= 1
             if self.time == 0:
                 self.lock = False
-    #锁住io，持续time个timestep
-    def lock(self, time):
+    #锁住io，持续time个timelostep
+    def lock_io(self, time):
         self.lock = True
         self.time = time
     #判断io是否被锁住
