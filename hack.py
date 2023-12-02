@@ -474,15 +474,23 @@ def all_cloud(p: Problem):
                 if i > 0:
                     if (
                         a[-1] == "BBB"
-                        and not sl.lock_list.is_locked("CU")
-                        and not sl.lock_list.is_locked("DU")
+                        
                     ):
-                        sl.lock_list.update()
-                        a.append("CCB")
-                        sl.lock_list.lock_instance("CU")
-                        sl.lock_list.lock_instance("DU")
+                        if not  sl.lock_list.is_locked("CU")and not sl.lock_list.is_locked("DU"):
+                            sl.lock_list.update()
+                            a.append("CCB")
+                            sl.lock_list.lock_instance("CU")
+                            sl.lock_list.lock_instance("DU")
 
-                        flag = 1
+                            flag = 1
+                        if not sl.lock_list.is_locked("CU") and not sl.lock_list.is_locked("DU") and not   sl.lock_list.is_locked("PHY"):
+                            sl.lock_list.update()
+                            a.append("CCC")
+                            sl.lock_list.lock_instance("CU")
+                            sl.lock_list.lock_instance("PHY")
+                            sl.lock_list.lock_instance("DU")
+                            flag = 1
+                            
                     elif a[-1] == "CBB" and not sl.lock_list.is_locked("DU"):
                         sl.lock_list.update()
                         a.append("CCB")
