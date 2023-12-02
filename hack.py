@@ -323,8 +323,9 @@ def slice_cost(p: Problem, sol: Solution, sl: Slice, time: int, alloc: str):
             sol.BBU_alloc[time].CPU += sl.traffic[time] * s.CPU
             sol.BBU_alloc[time].MEM += sl.traffic[time] * s.MEM
             sol.BBU_alloc[time].ACC += sl.traffic[time] * s.ACC
-            if sol.BBU_alloc[time].CPU>p.BBU_CPU_set * p.BBU_sets:
-                c=input("CPU")
+            # if sol.BBU_alloc[time].CPU>p.BBU_CPU_set * p.BBU_sets:
+            #     print(time)
+            #     c=input("CPU")
 
     return ret
 
@@ -341,9 +342,9 @@ def all_cloud(p: Problem):
     sol.allocation = []
 
     # TODO:BBU放不下，同时instance有锁无法从BBU迁移到CLOUD
-    BBU_CPUtt = p.BBU_CPU_set * p.BBU_sets
-    BBU_MEMtt = p.BBU_MEM_set * p.BBU_sets
-    BBU_ACCtt = p.BBU_ACC_set * p.BBU_sets
+    BBU_CPUtt = p.BBU_CPU_set * (p.BBU_sets-1)
+    BBU_MEMtt = p.BBU_MEM_set * (p.BBU_sets-1)
+    BBU_ACCtt = p.BBU_ACC_set * (p.BBU_sets-1)
     for index, sl in enumerate(p.slices):
         a = []
         for i in range(p.episode_length):
@@ -371,16 +372,19 @@ def all_cloud(p: Problem):
                         a.append("BBB")
                         flag = 1
                     elif a[-1] == "CBB":
-                        if not sl.lock_list.is_locked("CU"):
-                            sl.lock_list.update()
-                            a.append("BBB")
-                            sl.lock_list.lock_instance("CU")
+                        # if not sl.lock_list.is_locked("CU"):
+                        #     sl.lock_list.update()
+                        #     a.append("BBB")
+                        #     sl.lock_list.lock_instance("CU")
 
-                            flag = 1
+                        #     flag = 1
+                        if not sl.lock_list.is_locked("CU") and not sl.lock_list.is_locked("PHY"):
+                            sl.lock_list.update()
+                            a.append("CCC")
+                            sl.lock_list.lock_instance("CU")
+                            sl.lock_list.lock_instance("PHY")
                     elif a[-1] == "CCB":
-                        if not sl.lock_list.is_locked(
-                            "CU"
-                        ) and not sl.lock_list.is_locked("DU"):
+                        if not sl.lock_list.is_locked("CU") and not sl.lock_list.is_locked("DU"):
                             sl.lock_list.update()
                             a.append("BBB")
                             sl.lock_list.lock_instance("CU")
@@ -409,7 +413,7 @@ def all_cloud(p: Problem):
                 and ACC_i <= p.BBU_ACC_set
             ):
                 if i == 0:
-                    a.append("CBB")
+                    a.append("CCC")
 
                     flag = 1
                 if i > 0:
@@ -417,26 +421,42 @@ def all_cloud(p: Problem):
                         sl.lock_list.update()
                         a.append("CBB")
                         sl.lock_list.lock_instance("CU")
+                                       
                         flag = 1
                     elif a[-1] == "CBB":
-                        a.append("CBB")
-
-                        flag = 1
-                    elif a[-1] == "CCB":
-                        if not sl.lock_list.is_locked("DU"):
+                        if not sl.lock_list.is_locked("DU") and not sl.lock_list.is_locked("PHY"):
                             sl.lock_list.update()
-                            a.append("CBB")
-                            sl.lock_list.lock_instance("DU")
-                            flag = 1
-                    elif a[-1] == "CCC":
-                        if not sl.lock_list.is_locked(
-                            "DU"
-                        ) and not sl.lock_list.is_locked("PHY"):
-                            sl.lock_list.update()
-                            a.append("CBB")
+                            a.append("CCC")
                             sl.lock_list.lock_instance("DU")
                             sl.lock_list.lock_instance("PHY")
                             flag = 1
+                        
+
+                        
+                    elif a[-1] == "CCB":
+                        if  not sl.lock_list.is_locked("PHY"):
+                            sl.lock_list.update()
+                            a.append("CCC")
+                            sl.lock_list.lock_instance("PHY")
+                            flag = 1
+                        # if not sl.lock_list.is_locked("DU"):
+                        #     sl.lock_list.update()
+                        #     a.append("CBB")
+                        #     sl.lock_list.lock_instance("DU")
+                        #     flag = 1
+                    elif a[-1] == "CCC":
+                        a.append("CCC")
+                        flag = 1
+                        sl.lock_list.update()
+                        
+                        # if not sl.lock_list.is_locked(
+                        #     "DU"
+                        # ) and not sl.lock_list.is_locked("PHY"):
+                        #     sl.lock_list.update()
+                        #     a.append("CBB")
+                        #     sl.lock_list.lock_instance("DU")
+                        #     sl.lock_list.lock_instance("PHY")
+                        #     flag = 1
                 if flag == 1:
                     sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, "CBB")
                     sol.IO_Costs[i] += sl.io[1] * sl.traffic[i]
@@ -445,10 +465,10 @@ def all_cloud(p: Problem):
             if (
                 CPU_i > p.BBU_CPU_set
                 and MEM_i > p.BBU_MEM_set
-                and ACC_i <= p.BBU_ACC_set * p.BBU_sets
+                and ACC_i <= p.BBU_ACC_set 
             ):
                 if i == 0:
-                    a.append("CCB")
+                    a.append("CCC")
 
                     flag = 1
                 if i > 0:
@@ -469,8 +489,12 @@ def all_cloud(p: Problem):
                         sl.lock_list.lock_instance("DU")
                         flag = 1
                     elif a[-1] == "CCB":
-                        a.append("CCB")
-                        flag = 1
+                        if not sl.lock_list.is_locked("PHY"):
+                            sl.lock_list.update()
+                            a.append("CCC")
+                            sl.lock_list.lock_instance("PHY")
+                            flag = 1
+                        
                     elif a[-1] == "CCC":
                         if not sl.lock_list.is_locked("PHY"):
                             sl.lock_list.update()
@@ -486,7 +510,8 @@ def all_cloud(p: Problem):
                 # sol.BBU_alloc[i].MEM+= sl.traffic[i] * sl.services[0].MEM
                 # sol.BBU_alloc[i].ACC+= sl.traffic[i] * sl.services[0].ACC
 
-            if flag == 0:  # 要么有锁 要么放不进BBU,放进CLOUD
+            if flag == 0:  # 要么有锁 要么放不进BBU,放进CLOUD     
+                
                 if i == 0:
                     a.append("CCC")
                     sol.CLOUD_Costs[i] += slice_cost(p, sol, sl, i, a[-1])
