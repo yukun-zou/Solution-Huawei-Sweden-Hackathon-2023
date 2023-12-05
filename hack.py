@@ -414,13 +414,12 @@ def all_cloud(p: Problem):
             ):
                 if i == 0:
                     a.append("CCC")
-
                     flag = 1
                 if i > 0:
                     if a[-1] == "BBB" and not sl.lock_list.is_locked("CU"):
                         sl.lock_list.update()
                         a.append("CBB")
-                        sl.lock_list.lock_instance("CU")
+                        sl.lock_list.lock_instance("CU")#多加几个C 判断有没有别的锁空着 有就+C
                                        
                         flag = 1
                     elif a[-1] == "CBB":
